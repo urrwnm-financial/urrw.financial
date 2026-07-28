@@ -2,27 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Blern';
+  src: url('/fonts/Blern-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 40 30% 98%;
+    --foreground: 350 25% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 350 25% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --popover-foreground: 350 25% 13%;
+    --primary: 350 62% 26%;
+    --primary-foreground: 40 33% 97%;
+    --secondary: 43 45% 93%;
+    --secondary-foreground: 350 40% 20%;
+    --muted: 40 20% 95%;
+    --muted-foreground: 350 8% 42%;
+    --accent: 43 74% 49%;
+    --accent-foreground: 350 45% 14%;
+    --destructive: 4 78% 56%;
+    --destructive-foreground: 40 33% 97%;
+    --border: 350 15% 88%;
+    --input: 350 15% 88%;
+    --ring: 350 62% 26%;
     --radius: 0.5rem;
   }
 
@@ -55,6 +63,28 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Tahoma', 'Leelawadee UI', system-ui, sans-serif;
+    font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
   }
+}
+
+@keyframes gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-text {
+  background-size: 200% auto;
+  animation: gradient-flow 4s ease-in-out infinite;
+}
+
+.animate-gradient-bg {
+  background-size: 300% 300%;
+  animation: gradient-flow 12s ease-in-out infinite;
 }

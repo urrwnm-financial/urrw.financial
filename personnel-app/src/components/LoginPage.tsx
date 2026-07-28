@@ -49,9 +49,9 @@ export function LoginPage({ personnel, onLogin }: LoginPageProps) {
           </div>
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-              ระบบจัดการบุคลากร
+              Financial
             </h1>
-            <p className="text-sm text-slate-500">เข้าสู่ระบบเพื่อจัดการข้อมูลบุคลากร</p>
+            <p className="text-sm text-slate-500">ระบบติดตามแผนปฏิบัติการและงบประมาณ</p>
           </div>
         </div>
 

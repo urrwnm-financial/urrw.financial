@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
-import { GraduationCap, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -23,21 +23,40 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div
+      className="animate-gradient-bg flex min-h-screen items-center justify-center px-4"
+      style={{
+        backgroundImage: "linear-gradient(120deg, #7a1f2b, #d4212c, #d4af37, #d4212c, #7a1f2b)",
+      }}
+    >
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center bg-slate-900 text-white">
-            <GraduationCap className="h-6 w-6" strokeWidth={1.75} />
+        <form onSubmit={handleSubmit} className="rounded-2xl border border-accent/25 bg-card p-6 shadow-2xl shadow-black/30">
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <div className="flex h-24 w-24 items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="logo"
+                className="h-full w-full object-contain drop-shadow-[0_8px_12px_rgba(15,23,42,0.35)]"
+              />
+            </div>
+            <div className="space-y-1">
+              <h1
+                className="animate-gradient-text bg-clip-text text-5xl font-semibold tracking-tight text-transparent"
+                style={{
+                  fontFamily: "'Blern', sans-serif",
+                  backgroundImage: "linear-gradient(90deg, #7a1f2b, #d4212c, #d4af37, #d4212c, #7a1f2b)",
+                }}
+              >
+                Financial
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                ระบบติดตามแผนปฏิบัติการ
+                <br className="sm:hidden" />
+                และงบประมาณราชกัญญาฯ
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-              ระบบจัดการบุคลากร
-            </h1>
-            <p className="text-sm text-slate-500">เข้าสู่ระบบเพื่อจัดการข้อมูลบุคลากร</p>
-          </div>
-        </div>
 
-        <form onSubmit={handleSubmit} className="border border-slate-200 bg-white p-6">
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="username">ชื่อผู้ใช้</Label>
@@ -47,7 +66,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="กรอกชื่อผู้ใช้"
-                className="rounded-none"
+                className="rounded-lg"
                 required
               />
             </div>
@@ -62,13 +81,13 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="กรอกรหัสผ่าน"
-                  className="rounded-none pr-10"
+                  className="rounded-lg pr-10"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-slate-400 hover:text-slate-700"
+                  className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -77,7 +96,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="flex items-start gap-2 border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -86,16 +105,12 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-none bg-slate-900 hover:bg-slate-800"
+              className="w-full rounded-lg"
             >
               {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
             </Button>
           </div>
         </form>
-
-        <p className="mt-4 text-center text-xs text-slate-400">
-          บัญชีทดสอบ: admin / admin123
-        </p>
       </div>
     </div>
   );
