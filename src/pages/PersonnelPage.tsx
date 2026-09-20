@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,11 +26,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { Personnel } from "@/lib/types";
-import { SUBJECT_GROUPS } from "@/lib/types";
+import { PREFIXES, SUBJECT_GROUPS } from "@/lib/types";
 import { addPersonnel, deletePersonnel, listPersonnel, updatePersonnel } from "@/lib/personnel-api";
 import { useAuth } from "@/lib/auth-context";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { AppHeader } from "@/components/AppHeader";
 import {
-  LogOut,
+  ArrowLeft,
   Plus,
   Pencil,
   Trash2,
@@ -39,18 +42,22 @@ import {
   EyeOff,
   Users,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 
 const emptyForm = {
   username: "",
   password: "",
-  name: "",
+  prefix: PREFIXES[0] as string,
+  firstName: "",
+  lastName: "",
   position: "",
   subjectGroup: SUBJECT_GROUPS[0] as string,
 };
 
-export default function PersonnelPage() {
-  const { logout } = useAuth();
+export default function PersonnelPage({ onBack }: { onBack: () => void }) {
+  const { user, credentials } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -62,8 +69,15 @@ export default function PersonnelPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Personnel | null>(null);
   const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const positionRef = useRef<HTMLInputElement>(null);
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     refresh();
@@ -87,7 +101,7 @@ export default function PersonnelPage() {
     if (!q) return personnel;
     return personnel.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
+        `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
         p.username.toLowerCase().includes(q) ||
         p.position.toLowerCase().includes(q) ||
         p.subjectGroup.toLowerCase().includes(q),
@@ -98,6 +112,7 @@ export default function PersonnelPage() {
     setEditingId(null);
     setForm(emptyForm);
     setFormError("");
+    setFieldErrors({});
     setShowPassword(false);
     setDialogOpen(true);
   }
@@ -107,52 +122,80 @@ export default function PersonnelPage() {
     setForm({
       username: p.username,
       password: "",
-      name: p.name,
+      prefix: p.prefix,
+      firstName: p.firstName,
+      lastName: p.lastName,
       position: p.position,
       subjectGroup: p.subjectGroup,
     });
     setFormError("");
+    setFieldErrors({});
     setShowPassword(false);
     setDialogOpen(true);
   }
 
   async function handleSubmit() {
-    if (!form.username.trim() || !form.name.trim() || !form.position.trim()) {
-      setFormError("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+    if (!credentials) return;
+
+    const errors: Record<string, string> = {};
+    if (!form.firstName.trim()) errors.firstName = "กรุณากรอกชื่อ";
+    if (!form.lastName.trim()) errors.lastName = "กรุณากรอกนามสกุล";
+    if (!form.position.trim()) errors.position = "กรุณากรอกตำแหน่ง";
+    if (!form.username.trim()) errors.username = "กรุณากรอกชื่อผู้ใช้";
+    if (!editingId && !form.password.trim()) errors.password = "กรุณากรอกรหัสผ่าน";
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstRef = errors.firstName
+        ? firstNameRef
+        : errors.lastName
+          ? lastNameRef
+          : errors.position
+            ? positionRef
+            : errors.username
+              ? usernameRef
+              : passwordRef;
+      firstRef.current?.focus();
       return;
     }
-    if (!editingId && !form.password.trim()) {
-      setFormError("กรุณากรอกรหัสผ่าน");
-      return;
-    }
+
+    setFieldErrors({});
     setSaving(true);
     setFormError("");
     try {
       if (editingId) {
-        const updated = await updatePersonnel(editingId, form);
+        const updated = await updatePersonnel(credentials, editingId, form);
         setPersonnel((prev) => prev.map((p) => (p.id === editingId ? updated : p)));
+        toast({ title: "บันทึกการแก้ไขสำเร็จ", description: `${updated.prefix}${updated.firstName} ${updated.lastName}` });
       } else {
-        const created = await addPersonnel(form);
+        const created = await addPersonnel(credentials, form);
         setPersonnel((prev) => [created, ...prev]);
+        toast({ title: "เพิ่มบุคลากรสำเร็จ", description: `${created.prefix}${created.firstName} ${created.lastName}` });
       }
       setDialogOpen(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "";
-      setFormError(message.includes("duplicate") ? "ชื่อผู้ใช้นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น" : "บันทึกข้อมูลไม่สำเร็จ");
+      if (message.includes("duplicate")) {
+        setFieldErrors({ username: "ชื่อผู้ใช้นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น" });
+        usernameRef.current?.focus();
+      } else {
+        setFormError("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่");
+      }
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !credentials) return;
     setDeleting(true);
     try {
-      await deletePersonnel(deleteTarget.id);
+      await deletePersonnel(credentials, deleteTarget.id);
       setPersonnel((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      toast({ title: "ลบข้อมูลสำเร็จ", description: `${deleteTarget.prefix}${deleteTarget.firstName} ${deleteTarget.lastName}` });
       setDeleteTarget(null);
     } catch {
-      setLoadError("ลบข้อมูลไม่สำเร็จ");
+      toast({ variant: "destructive", title: "ลบข้อมูลไม่สำเร็จ", description: "กรุณาลองใหม่อีกครั้ง" });
     } finally {
       setDeleting(false);
     }
@@ -160,88 +203,130 @@ export default function PersonnelPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-primary/15 bg-background/80 shadow-[0_1px_0_hsl(var(--accent)/0.25)] backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 shrink items-center gap-2 sm:gap-2.5">
-            <img
-              src="/logo.png"
-              alt="logo"
-              className="h-9 w-9 shrink-0 object-contain drop-shadow-[0_4px_8px_rgba(15,23,42,0.35)] sm:h-10 sm:w-10"
-            />
-            <div className="min-w-0 leading-tight">
-              <p
-                className="animate-gradient-text truncate bg-clip-text text-xl font-extrabold tracking-tight text-transparent"
-                style={{
-                  fontFamily: "'Blern', sans-serif",
-                  backgroundImage: "linear-gradient(90deg, #7a1f2b, #d4212c, #d4af37, #d4212c, #7a1f2b)",
-                }}
-              >
-                Financial
-              </p>
-              <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
-                ระบบติดตามแผนปฏิบัติการและงบประมาณราชกัญญาฯ
-              </p>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <div className="hidden items-center gap-2 sm:flex">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">ระบบพร้อมใช้งาน</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="hidden items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground md:flex">
-                ผู้ดูแลระบบ
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4" />
-                ออกจากระบบ
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">บุคลากร</h2>
-            <p className="text-sm text-muted-foreground">ทั้งหมด {personnel.length} คน</p>
-          </div>
+      <AppHeader
+        roleLabel="ผู้ดูแลระบบ"
+        navSlot={
           <Button
-            onClick={openAddDialog}
-            className="gap-1.5 rounded-lg"
+            variant="outline"
+            size="sm"
+            onClick={onBack}
+            className="gap-1.5 rounded-lg text-xs"
           >
-            <Plus className="h-4 w-4" />
-            เพิ่มบุคลากร
+            <ArrowLeft className="h-3.5 w-3.5" />
+            กลับไปสแกนเอกสาร
           </Button>
+        }
+      />
+
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <div className="mb-4 flex items-start justify-between gap-4 sm:mb-6">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">บุคลากร</h1>
+            <p className="text-sm text-muted-foreground">ข้อมูลบุคลากรทั้งหมด</p>
+          </div>
+          {isAdmin && (
+            <Button size="sm" className="gap-1.5 rounded-lg" onClick={openAddDialog}>
+              <Plus className="h-4 w-4" />
+              เพิ่มบุคลากร
+            </Button>
+          )}
         </div>
 
-        <div className="relative mb-4 max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาชื่อ ตำแหน่ง หรือกลุ่มสาระ..."
-            className="rounded-lg pl-9"
-          />
-        </div>
+        {!isAdmin && (
+          <div className="bento-cell flex flex-col items-center gap-3 p-8 text-center sm:p-12">
+            <ShieldAlert className="h-10 w-10 text-destructive/70" />
+            <div>
+              <p className="font-semibold text-foreground">ต้องเป็นผู้ดูแลระบบ (admin)</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                บัญชีนี้ไม่มีสิทธิ์จัดการข้อมูลบุคลากร กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ
+              </p>
+            </div>
+          </div>
+        )}
 
+        {isAdmin && (
+        <>
         {loadError && (
           <div className="mb-4 border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {loadError}
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-accent/25 bg-card shadow-sm">
+        <div className="bento-cell mb-4 p-3 sm:mb-6 sm:p-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="ค้นหาชื่อ ตำแหน่ง หรือกลุ่มสาระ..."
+              aria-label="ค้นหาบุคลากร"
+              className="rounded-lg border-none bg-transparent pl-9 shadow-none focus-visible:ring-1"
+            />
+          </div>
+        </div>
+
+        {loading && (
+          <div className="bento-cell flex h-32 items-center justify-center text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && (
+          <div className="bento-cell flex h-32 flex-col items-center justify-center gap-2 text-muted-foreground">
+            <Users className="h-8 w-8 text-muted-foreground/50" />
+            <span className="text-sm">
+              {personnel.length === 0 ? "ยังไม่มีข้อมูลบุคลากร" : "ไม่พบข้อมูลที่ค้นหา"}
+            </span>
+          </div>
+        )}
+
+        {/* Mobile: stacked bento cards (table doesn't fit small screens) */}
+        {!loading && filtered.length > 0 && (
+          <div className="grid grid-cols-1 gap-3 sm:hidden">
+            {filtered.map((p) => (
+              <div key={p.id} className="bento-cell p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">
+                      {p.prefix}
+                      {p.firstName} {p.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{p.position}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                      onClick={() => openEditDialog(p)}
+                      aria-label={`แก้ไข ${p.prefix}${p.firstName} ${p.lastName}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteTarget(p)}
+                      aria-label={`ลบ ${p.prefix}${p.firstName} ${p.lastName}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="rounded-none font-normal">
+                    {p.subjectGroup}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">{p.username}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop/tablet: table */}
+        <div className="bento-cell hidden overflow-hidden sm:block">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -253,29 +338,13 @@ export default function PersonnelPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loading && filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center gap-2">
-                      <Users className="h-8 w-8 text-muted-foreground/50" />
-                      <span className="text-sm">
-                        {personnel.length === 0 ? "ยังไม่มีข้อมูลบุคลากร" : "ไม่พบข้อมูลที่ค้นหา"}
-                      </span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
               {!loading &&
                 filtered.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium text-foreground">{p.name}</TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {p.prefix}
+                      {p.firstName} {p.lastName}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{p.position}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="rounded-none font-normal">
@@ -290,6 +359,7 @@ export default function PersonnelPage() {
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           onClick={() => openEditDialog(p)}
+                          aria-label={`แก้ไข ${p.prefix}${p.firstName} ${p.lastName}`}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -298,6 +368,7 @@ export default function PersonnelPage() {
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
                           onClick={() => setDeleteTarget(p)}
+                          aria-label={`ลบ ${p.prefix}${p.firstName} ${p.lastName}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -308,6 +379,8 @@ export default function PersonnelPage() {
             </TableBody>
           </Table>
         </div>
+        </>
+        )}
       </main>
 
       {/* Add / Edit dialog */}
@@ -318,26 +391,80 @@ export default function PersonnelPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">ชื่อ - นามสกุล</Label>
-              <Input
-                id="name"
-                className="rounded-lg"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="เช่น นายสมชาย ใจดี"
-              />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="prefix">คำนำหน้า</Label>
+                <Select
+                  value={form.prefix}
+                  onValueChange={(v) => setForm({ ...form, prefix: v })}
+                >
+                  <SelectTrigger id="prefix" className="h-11 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PREFIXES.map((pre) => (
+                      <SelectItem key={pre} value={pre}>
+                        {pre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="firstName">
+                  ชื่อ <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="firstName"
+                  ref={firstNameRef}
+                  value={form.firstName}
+                  onChange={(e) => {
+                    setForm({ ...form, firstName: e.target.value });
+                    if (fieldErrors.firstName) setFieldErrors({ ...fieldErrors, firstName: "" });
+                  }}
+                  placeholder="เช่น สมชาย"
+                  aria-invalid={!!fieldErrors.firstName}
+                  className={cn("h-11 rounded-lg", fieldErrors.firstName && "border-destructive focus-visible:ring-destructive")}
+                />
+                {fieldErrors.firstName && <p className="text-xs text-destructive">{fieldErrors.firstName}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="lastName">
+                  นามสกุล <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="lastName"
+                  ref={lastNameRef}
+                  value={form.lastName}
+                  onChange={(e) => {
+                    setForm({ ...form, lastName: e.target.value });
+                    if (fieldErrors.lastName) setFieldErrors({ ...fieldErrors, lastName: "" });
+                  }}
+                  placeholder="เช่น ใจดี"
+                  aria-invalid={!!fieldErrors.lastName}
+                  className={cn("h-11 rounded-lg", fieldErrors.lastName && "border-destructive focus-visible:ring-destructive")}
+                />
+                {fieldErrors.lastName && <p className="text-xs text-destructive">{fieldErrors.lastName}</p>}
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="position">ตำแหน่ง</Label>
+              <Label htmlFor="position">
+                ตำแหน่ง <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="position"
-                className="rounded-lg"
+                ref={positionRef}
                 value={form.position}
-                onChange={(e) => setForm({ ...form, position: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, position: e.target.value });
+                  if (fieldErrors.position) setFieldErrors({ ...fieldErrors, position: "" });
+                }}
                 placeholder="เช่น ครู, ครูผู้ช่วย, หัวหน้ากลุ่มสาระ"
+                aria-invalid={!!fieldErrors.position}
+                className={cn("h-11 rounded-lg", fieldErrors.position && "border-destructive focus-visible:ring-destructive")}
               />
+              {fieldErrors.position && <p className="text-xs text-destructive">{fieldErrors.position}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -346,7 +473,7 @@ export default function PersonnelPage() {
                 value={form.subjectGroup}
                 onValueChange={(v) => setForm({ ...form, subjectGroup: v })}
               >
-                <SelectTrigger id="subjectGroup" className="rounded-lg">
+                <SelectTrigger id="subjectGroup" className="h-11 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,50 +487,68 @@ export default function PersonnelPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="username">ชื่อผู้ใช้ (Username)</Label>
+              <Label htmlFor="username">
+                ชื่อผู้ใช้ (Username) <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="username"
-                className="rounded-lg"
+                ref={usernameRef}
                 value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, username: e.target.value });
+                  if (fieldErrors.username) setFieldErrors({ ...fieldErrors, username: "" });
+                }}
                 placeholder="เช่น somchai.j"
+                aria-invalid={!!fieldErrors.username}
+                className={cn("h-11 rounded-lg", fieldErrors.username && "border-destructive focus-visible:ring-destructive")}
               />
+              {fieldErrors.username && <p className="text-xs text-destructive">{fieldErrors.username}</p>}
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="password">
-                รหัสผ่าน (Password){" "}
+                รหัสผ่าน (Password) {!editingId && <span className="text-destructive">*</span>}{" "}
                 {editingId && <span className="font-normal text-muted-foreground">— เว้นว่างหากไม่เปลี่ยน</span>}
               </Label>
               <div className="relative">
                 <Input
                   id="password"
+                  ref={passwordRef}
                   type={showPassword ? "text" : "password"}
-                  className="rounded-lg pr-10"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, password: e.target.value });
+                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: "" });
+                  }}
                   placeholder={editingId ? "••••••••" : "กรอกรหัสผ่าน"}
+                  aria-invalid={!!fieldErrors.password}
+                  className={cn("h-11 rounded-lg pr-10", fieldErrors.password && "border-destructive focus-visible:ring-destructive")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
+                  aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
             </div>
 
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
+            {formError && (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" className="rounded-lg" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" className="h-11 rounded-lg" onClick={() => setDialogOpen(false)}>
               ยกเลิก
             </Button>
             <Button
-              className="rounded-lg"
+              className="h-11 rounded-lg"
               onClick={handleSubmit}
               disabled={saving}
             >
@@ -421,16 +566,21 @@ export default function PersonnelPage() {
             <DialogTitle>ยืนยันการลบ</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ต้องการลบข้อมูลของ <span className="font-medium text-foreground">{deleteTarget?.name}</span> ใช่หรือไม่?
+            ต้องการลบข้อมูลของ{" "}
+            <span className="font-medium text-foreground">
+              {deleteTarget?.prefix}
+              {deleteTarget?.firstName} {deleteTarget?.lastName}
+            </span>{" "}
+            ใช่หรือไม่?
             การกระทำนี้ไม่สามารถย้อนกลับได้
           </p>
           <DialogFooter>
-            <Button variant="outline" className="rounded-lg" onClick={() => setDeleteTarget(null)}>
+            <Button variant="outline" className="h-11 rounded-lg" onClick={() => setDeleteTarget(null)}>
               ยกเลิก
             </Button>
             <Button
               variant="destructive"
-              className="rounded-lg"
+              className="h-11 rounded-lg"
               onClick={handleDelete}
               disabled={deleting}
             >

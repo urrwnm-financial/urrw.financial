@@ -26,34 +26,13 @@
     --muted-foreground: 350 8% 42%;
     --accent: 43 74% 49%;
     --accent-foreground: 350 45% 14%;
-    --destructive: 4 78% 56%;
+    --destructive: 4 78% 44%;
     --destructive-foreground: 40 33% 97%;
     --border: 350 15% 88%;
     --input: 350 15% 88%;
     --ring: 350 62% 26%;
     --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --brand-gradient-stops: #7a1f2b, #d4212c, #d4af37, #d4212c, #7a1f2b;
   }
 }
 
@@ -81,10 +60,48 @@
 
 .animate-gradient-text {
   background-size: 200% auto;
-  animation: gradient-flow 4s ease-in-out infinite;
 }
 
 .animate-gradient-bg {
   background-size: 300% 300%;
-  animation: gradient-flow 12s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-gradient-text {
+    animation: gradient-flow 4s ease-in-out infinite;
+  }
+
+  .animate-gradient-bg {
+    animation: gradient-flow 12s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ping {
+    animation: none;
+  }
+}
+
+@keyframes bento-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--accent) / 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 10px hsl(var(--accent) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--accent) / 0);
+  }
+}
+
+@layer components {
+  .bento-cell {
+    @apply rounded-2xl border border-accent/20 bg-card shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bento-pulse {
+    animation: bento-pulse-ring 2.4s ease-out infinite;
+  }
 }
