@@ -53,6 +53,7 @@ const emptyForm = {
   lastName: "",
   position: "",
   subjectGroup: SUBJECT_GROUPS[0] as string,
+  role: "staff",
 };
 
 export default function PersonnelPage({ onBack }: { onBack: () => void }) {
@@ -65,6 +66,7 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingIsSelf, setEditingIsSelf] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [showPassword, setShowPassword] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Personnel | null>(null);
@@ -110,6 +112,7 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
 
   function openAddDialog() {
     setEditingId(null);
+    setEditingIsSelf(false);
     setForm(emptyForm);
     setFormError("");
     setFieldErrors({});
@@ -119,6 +122,7 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
 
   function openEditDialog(p: Personnel) {
     setEditingId(p.id);
+    setEditingIsSelf(p.username === user?.username);
     setForm({
       username: p.username,
       password: "",
@@ -127,6 +131,7 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
       lastName: p.lastName,
       position: p.position,
       subjectGroup: p.subjectGroup,
+      role: p.role,
     });
     setFormError("");
     setFieldErrors({});
@@ -178,6 +183,8 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
       if (message.includes("duplicate")) {
         setFieldErrors({ username: "ชื่อผู้ใช้นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น" });
         usernameRef.current?.focus();
+      } else if (message.includes("last admin")) {
+        setFormError("ต้องมีผู้ดูแลระบบเหลืออย่างน้อย 1 คน ไม่สามารถลดสิทธิ์คนนี้ได้");
       } else {
         setFormError("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่");
       }
@@ -318,6 +325,9 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
                   <Badge variant="secondary" className="rounded-none font-normal">
                     {p.subjectGroup}
                   </Badge>
+                  {p.role === "admin" && (
+                    <Badge className="rounded-none font-normal">ผู้ดูแลระบบ</Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">{p.username}</span>
                 </div>
               </div>
@@ -342,8 +352,15 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
                 filtered.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium text-foreground">
-                      {p.prefix}
-                      {p.firstName} {p.lastName}
+                      <div className="flex items-center gap-2">
+                        <span>
+                          {p.prefix}
+                          {p.firstName} {p.lastName}
+                        </span>
+                        {p.role === "admin" && (
+                          <Badge className="rounded-none font-normal">ผู้ดูแลระบบ</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{p.position}</TableCell>
                     <TableCell>
@@ -484,6 +501,26 @@ export default function PersonnelPage({ onBack }: { onBack: () => void }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="role">สิทธิ์การใช้งาน</Label>
+              <Select
+                value={form.role}
+                onValueChange={(v) => setForm({ ...form, role: v })}
+                disabled={editingIsSelf}
+              >
+                <SelectTrigger id="role" className="h-11 rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">ผู้ใช้งานทั่วไป</SelectItem>
+                  <SelectItem value="admin">ผู้ดูแลระบบ (admin)</SelectItem>
+                </SelectContent>
+              </Select>
+              {editingIsSelf && (
+                <p className="text-xs text-muted-foreground">ไม่สามารถแก้ไขสิทธิ์ของบัญชีตัวเองได้</p>
+              )}
             </div>
 
             <div className="space-y-1.5">

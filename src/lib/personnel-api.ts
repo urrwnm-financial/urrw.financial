@@ -9,6 +9,7 @@ export interface PersonnelInput {
   lastName: string;
   position: string;
   subjectGroup: string;
+  role: string;
 }
 
 export interface Caller {
@@ -44,6 +45,7 @@ export async function addPersonnel(caller: Caller, input: PersonnelInput): Promi
     p_last_name: input.lastName,
     p_position: input.position,
     p_subject_group: input.subjectGroup,
+    p_role: input.role,
   });
   if (error) throw error;
   return mapRow(data[0]);
@@ -65,6 +67,7 @@ export async function updatePersonnel(
     p_last_name: input.lastName,
     p_position: input.position,
     p_subject_group: input.subjectGroup,
+    p_role: input.role,
   });
   if (error) throw error;
   return mapRow(data[0]);
