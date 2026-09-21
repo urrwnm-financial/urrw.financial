@@ -101,7 +101,7 @@ export default function ScanPage({
         await videoRef.current.play();
       }
     } catch {
-      setCameraError("เปิดกล้องไม่สำเร็จ กรุณาอนุญาตการใช้กล้อง หรือเลือกไฟล์ภาพแทน");
+      setCameraError("เปิดกล้องไม่สำเร็จ กรุณาอนุญาตการใช้กล้อง หรือเลือกไฟล์ PDF แทน");
     }
   }
 
@@ -314,12 +314,12 @@ export default function ScanPage({
                 className="h-11 gap-1.5 rounded-lg"
               >
                 <FileImage className="h-4 w-4" />
-                เลือกไฟล์ภาพแทน
+                เลือกไฟล์ PDF แทน
               </Button>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 capture="environment"
                 onChange={handleFilePicked}
                 className="hidden"
@@ -355,7 +355,7 @@ export default function ScanPage({
                 variant="ghost"
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                aria-label="เลือกไฟล์ภาพแทน"
+                aria-label="เลือกไฟล์ PDF แทน"
                 className="h-11 w-11"
               >
                 <FileImage className="h-5 w-5" />
@@ -370,7 +370,11 @@ export default function ScanPage({
               className="mx-auto w-full max-w-sm overflow-hidden rounded-xl border border-accent/20"
               style={{ aspectRatio: A4_RATIO }}
             >
-              <img src={capturedUrl} alt="ตัวอย่างเอกสารที่สแกน" className="h-full w-full object-cover" />
+              {capturedBlob?.type === "application/pdf" ? (
+                <iframe src={capturedUrl} title="ตัวอย่างเอกสารที่สแกน" className="h-full w-full" />
+              ) : (
+                <img src={capturedUrl} alt="ตัวอย่างเอกสารที่สแกน" className="h-full w-full object-cover" />
+              )}
             </div>
             <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row">
               <Button variant="outline" onClick={retake} className="h-11 flex-1 gap-1.5 rounded-lg" disabled={saving}>
